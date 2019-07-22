@@ -2,6 +2,10 @@ var express = require("express");
 var logger = require("morgan");
 var mongoose = require("mongoose");
 
+// for scraping
+var axios = require("axios");
+var cheerio = require("cheerio");
+
 var PORT = 3000;
 
 // Require all models
@@ -65,6 +69,20 @@ app.get("/user", function(req, res) {
     });
 });
 
+// Route for retrieving all Articles from the db
+app.get("/article", function(req, res) {
+  // Find all Articles
+  db.Article.find({})
+    .then(function(dbArticle) {
+      // If all Articles are successfully found, send them back to the client
+      res.json(dbArticle);
+    })
+    .catch(function(err) {
+      // If an error occurs, send the error back to the client
+      res.json(err);
+    });
+});
+
 // Route for saving a new Note to the db and associating it with a User
 app.post("/submit", function(req, res) {
   // Create a new Note in the db
@@ -100,6 +118,53 @@ app.get("/populateduser", function(req, res) {
       res.json(err);
     });
 });
+
+// Scrape data from one site and place it into the mongodb db
+app.get("/scrape", function(req, res) {
+  // Make a request via axios for the news section of `ycombinator`
+  //axios.get("https://news.ycombinator.com/").then(function(response) {
+    axios.get("https://www.npr.org/sections/news/").then(function(response) {
+    // Load the html body from axios into cheerio
+    var $ = cheerio.load(response.data);
+    // For each element with a "title" class
+    $(".title").each(function(i, element) {
+      // Save the text and href of each link enclosed in the current element
+      var headline = $(element).children("a").text();
+      var link = $(element).children("a").attr("href");
+      console.log("headline " + headline);
+      console.log("link " + link);
+      var summary = $(element).next().children("a").text();
+      console.log("summary " + summary);
+
+        // If this found element had both a title and a link
+       if (headline && link && summary) {
+         // Insert the data in the Article db
+          db.Article.create({
+            headline: headline,
+            link: link,
+            summary: summary
+         },
+         function(err, inserted) {
+           if (err) {
+             // Log the error if one is encountered during the query
+             console.log(err);
+           }
+            else {
+              // Otherwise, log the inserted data
+              console.log(inserted);
+           }
+         });
+        }
+    });
+  });
+
+  // Send a "Scrape Complete" message to the browser
+  res.send("Scrape Complete");
+});
+
+
+
+
 
 // Start the server
 app.listen(PORT, function() {
