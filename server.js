@@ -42,6 +42,11 @@ db.User.create({ name: "Ernest Hemingway" })
 // Routes
 
 // Route for retrieving all Notes from the db
+app.get("/", function(req, res) {
+  res.send("Hello world");
+});
+
+
 app.get("/notes", function(req, res) {
   // Find all Notes
   db.Note.find({})
